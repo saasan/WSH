@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<!--
+================================================================================
+ removeemptyfolder.wsf
+ 指定フォルダ内の空フォルダを削除
+ Copyright (C) 2006 s2works. All rights reserved.
+ http://s2works.homeunix.net/
+
+ 使用方法：
+   ・removeemptyfolder.wsfにフォルダをドロップする。
+================================================================================
+-->
+<package>
+<job id="removeemptyfolder">
+<?job error="True" debug="False" ?>
+<object id="fso" progid="Scripting.FileSystemObject" />
+<script language="JScript">
+<![CDATA[
+
+//-------------------------------------------------------------------------------
+// メイン
+//-------------------------------------------------------------------------------
+var args = WScript.Arguments;
+
+if (args.length < 1) {
+	WScript.Echo("引数を指定してください");
+	WScript.Quit();
+}
+
+for (var i = 0; i < args.length; i++) {
+	var targetdir = args(i);
+
+	if (fso.FolderExists(targetdir)) {
+		remove_empty_folder(fso.GetFolder(targetdir));
+	}
+}
+
+WScript.Echo("完了");
+
+//-------------------------------------------------------------------------------
+// 再帰部
+//-------------------------------------------------------------------------------
+function remove_empty_folder(f) {
+	// 対象フォルダのサブフォルダ列挙
+	var sub_folders = new Enumerator(f.SubFolders);
+
+	// サブフォルダ削除
+	for (; !sub_folders.atEnd(); sub_folders.moveNext()) {
+		remove_empty_folder(sub_folders.item());
+	}
+
+	// ファイルとサブフォルダがなければフォルダ削除
+	if (f.Files.Count == 0 && f.SubFolders.Count == 0) {
+		try {
+			f.Delete(true);
+		}
+		catch (e) {
+			WScript.Echo(e.description + "\n" + f.Path);
+		}
+	}
+}
+
+]]>
+</script>
+</job>
+</package>

@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<!--
+================================================================================
+ removeHiddenFiles.wsf
+ 指定フォルダ内の隠しファイルを削除
+ Copyright (C) 2013 s2works. All rights reserved.
+ http://s2works.homeunix.net/
+
+ 使用方法：
+   ・removeHiddenFiles.wsfにフォルダをドロップする。
+================================================================================
+-->
+<package>
+<job id="removeHiddenFiles">
+<?job error="True" debug="False" ?>
+<object id="fso" progid="Scripting.FileSystemObject" />
+<script language="JScript">
+<![CDATA[
+
+//-------------------------------------------------------------------------------
+// メイン
+//-------------------------------------------------------------------------------
+var args = WScript.Arguments;
+
+if (args.length < 1) {
+	WScript.Echo("引数を指定してください");
+	WScript.Quit();
+}
+
+for (var i = 0; i < args.length; i++) {
+	var targetFolder = args(i);
+
+	if (fso.FolderExists(targetFolder)) {
+		removeHiddenFiles(fso.GetFolder(targetFolder));
+	}
+}
+
+WScript.Echo("完了");
+
+//-------------------------------------------------------------------------------
+// 再帰部
+//-------------------------------------------------------------------------------
+function removeHiddenFiles(folder) {
+	var ATTRIBUTE_HIDDEN = 2;
+
+	// 対象フォルダ内のサブフォルダを列挙
+	var subFolders = new Enumerator(folder.SubFolders);
+
+	// サブフォルダ内の隠しファイルを削除
+	for (; !subFolders.atEnd(); subFolders.moveNext()) {
+		removeHiddenFiles(subFolders.item());
+	}
+
+	// 対象フォルダ内のファイルを列挙
+	var files = new Enumerator(folder.Files);
+
+	// 対象フォルダ内の隠しファイルを削除
+	for (; !files.atEnd(); files.moveNext()) {
+		if (files.item().Attributes & ATTRIBUTE_HIDDEN) {
+			try {
+				WScript.Echo(files.item().Path);
+				files.item().Delete(true);
+			}
+			catch (e) {
+				WScript.Echo(e.description);
+			}
+		}
+	}
+}
+
+]]>
+</script>
+</job>
+</package>

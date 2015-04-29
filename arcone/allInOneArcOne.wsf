@@ -1,0 +1,261 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<!--
+================================================================================
+ allInOneArcOne.wsf
+ ・フォルダ内の隠しファイルを削除
+ ・サブフォルダ内のファイルを親フォルダに移動
+ ・ファイル/フォルダ名に使用されている全角記号、数字、アルファベットを半角に変換
+ ・フォルダを個別に圧縮
+ 以上全てを実行
+ Copyright (C) 2013 s2works. All rights reserved.
+ http://s2works.homeunix.net/
+
+ 使用方法：
+   ・allInOneArcOne.wsfにフォルダをドロップする。
+================================================================================
+-->
+<package>
+<job id="allInOneArcOne">
+<?job error="True" debug="False" ?>
+<object id="fso" progid="Scripting.FileSystemObject" />
+<object id="shell" progid="Wscript.Shell" />
+<script language="JScript">
+<![CDATA[
+
+//-------------------------------------------------------------------------------
+// 定数
+//-------------------------------------------------------------------------------
+// 削除するThumbs.dbの正規表現
+var THUMBSDB_REGEXP = /^thumbs\.db$/i;
+// 全角->半角変換する文字
+// 半角に変換したくないものはこのリストから取り除けばOK
+// \/:*?"<>|はファイル名に使えない
+// var FULL = "０１２３４５６７８９ＡＢＣＤＥＦＧＨＩＪＫＬＭＮＯＰＱＲＳＴＵＶＷＸＹＺａｂｃｄｅｆｇｈｉｊｋｌｍｎｏｐｑｒｓｔｕｖｗｘｙｚ　！＃＄％＆’（）＋，－．；＝＠［］＾＿｀｛｝";
+// var HALF = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz !#$%&'()+,-.;=@[]^_`{}";
+var FULL = "０１２３４５６７８９ＡＢＣＤＥＦＧＨＩＪＫＬＭＮＯＰＱＲＳＴＵＶＷＸＹＺａｂｃｄｅｆｇｈｉｊｋｌｍｎｏｐｑｒｓｔｕｖｗｘｙｚ　＃＄％＆’（）＋，－．；＝＠［］＾＿｀｛｝";
+var HALF = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz #$%&'()+,-.;=@[]^_`{}";
+// 実行ファイル名
+var EXE_FILE = "7za.exe";
+// コマンド
+var COMMAND = "a -tzip -r -mx0";
+// 拡張子
+var EXTENSION = ".zip";
+
+//-------------------------------------------------------------------------------
+// メイン
+//-------------------------------------------------------------------------------
+var args = WScript.Arguments;
+
+if (args.length < 1) {
+  WScript.Echo("引数を指定してください");
+  WScript.Quit();
+}
+
+for (var i = 0; i < args.length; i++) {
+  if (!fso.FolderExists(args(i))) {
+    continue;
+  }
+
+  var targetFolder = fso.GetFolder(args(i));
+
+  // 隠しファイルを削除
+  removeHiddenFiles(targetFolder);
+
+  // 対象フォルダのサブフォルダ列挙
+  var subFolders = new Enumerator(targetFolder.SubFolders);
+
+  // サブフォルダ内のファイルを移動
+  for (; !subFolders.atEnd(); subFolders.moveNext()) {
+    moveToParentFolder(targetFolder, subFolders.item());
+  }
+
+  // 名前を半角に変換
+  renameFolder(targetFolder);
+
+  // 圧縮
+  archive(targetFolder);
+}
+
+WScript.Echo("完了");
+
+//-------------------------------------------------------------------------------
+// 隠しファイルを削除
+//-------------------------------------------------------------------------------
+function removeHiddenFiles(folder) {
+	var ATTRIBUTE_HIDDEN = 2;
+
+	// 対象フォルダ内のサブフォルダを列挙
+	var subFolders = new Enumerator(folder.SubFolders);
+
+	// サブフォルダ内の隠しファイルを削除
+	for (; !subFolders.atEnd(); subFolders.moveNext()) {
+		removeHiddenFiles(subFolders.item());
+	}
+
+	// 対象フォルダ内のファイルを列挙
+	var files = new Enumerator(folder.Files);
+
+	// 対象フォルダ内の隠しファイルを削除
+	for (; !files.atEnd(); files.moveNext()) {
+		if (files.item().Attributes & ATTRIBUTE_HIDDEN) {
+			try {
+				WScript.Echo(files.item().Path);
+				files.item().Delete(true);
+			}
+			catch (e) {
+				WScript.Echo(e.description);
+			}
+		}
+	}
+}
+
+//-------------------------------------------------------------------------------
+// 親フォルダへ移動
+//-------------------------------------------------------------------------------
+function moveToParentFolder(parentFolder, folder) {
+  // 対象フォルダのサブフォルダ列挙
+  var subFolders = new Enumerator(folder.SubFolders);
+
+  // サブフォルダ内のファイルを移動
+  for (; !subFolders.atEnd(); subFolders.moveNext()) {
+    moveToParentFolder(parentFolder, subFolders.item());
+  }
+
+  // フォルダ内のファイル列挙
+  var files = new Enumerator(folder.Files);
+
+  // ファイルを移動
+  for (; !files.atEnd(); files.moveNext()) {
+    try {
+      files.item().Move(parentFolder.Path + '\\');
+    }
+    catch (e) {
+      WScript.Echo(e.description + "\n" + files.item().Path);
+    }
+  }
+
+  // ファイルとサブフォルダがなければフォルダ削除
+  if (folder.Files.Count == 0 && folder.SubFolders.Count == 0) {
+    try {
+      folder.Delete(true);
+    }
+    catch (e) {
+      WScript.Echo(e.description + "\n" + folder.Path);
+    }
+  }
+}
+
+//-------------------------------------------------------------------------------
+// フォルダ内の名前変更
+//-------------------------------------------------------------------------------
+function renameFolder(folder) {
+  // 対象フォルダのサブフォルダ列挙
+  var subFolders = new Enumerator(folder.SubFolders);
+
+  for (; !subFolders.atEnd(); subFolders.moveNext()) {
+    renameFolder(subFolders.item());
+    rename(subFolders.item());
+  }
+
+  if (folder.Files.Count > 0) {
+    // 対象フォルダのファイル列挙
+    var files = new Enumerator(folder.Files);
+
+    for (; !files.atEnd(); files.moveNext()) {
+      rename(files.item());
+    }
+  }
+
+  rename(folder);
+}
+
+//-------------------------------------------------------------------------------
+// ファイル/フォルダ名変更
+//-------------------------------------------------------------------------------
+function rename(item) {
+  var newName = fullToHalf(item.Name);
+
+  if (newName == item.Name) {
+    return;
+  }
+
+  var newPath = item.ParentFolder.Path + "\\" + newName;
+
+  if (fso.FolderExists(newPath) || fso.FileExists(newPath)) {
+    WScript.Echo(newPath + "は既に存在します。");
+  }
+  else {
+    try {
+      item.Move(newPath);
+    }
+    catch (e) {
+      WScript.Echo(e.description + "\n" + item.Path);
+    }
+  }
+}
+
+//------------------------------------------------------------------------------
+// 全角半角変換
+//------------------------------------------------------------------------------
+function fullToHalf(str) {
+  var table = [];
+  var i;
+
+  if (FULL.length != HALF.length) {
+    WScript.Echo("半角と全角のリストの長さが一致しません。");
+  }
+
+  for (i = 0; i < FULL.length; i++) {
+    table[FULL.charAt(i)] = HALF.charAt(i);
+  }
+
+  var newStr = "";
+  for (i = 0; i < str.length; i++) {
+    newStr += (str.charAt(i) in table ? table[str.charAt(i)] : str.charAt(i));
+  }
+
+  return newStr;
+}
+
+//-------------------------------------------------------------------------------
+// 圧縮ファイル作成
+//-------------------------------------------------------------------------------
+function archive(item) {
+  // 圧縮ファイル
+  var archiveFile = "";
+  // コマンドで指定に使う圧縮するファイル/フォルダ名
+  var commandItem = "";
+
+  if (fso.FolderExists(item)) {
+    // フォルダの場合
+    archiveFile = item.Path + EXTENSION;
+    commandItem = item.Path + "\\*";
+  }
+  else if (fso.FileExists(item)) {
+    // ファイルの場合
+    archiveFile = fso.GetParentFolderName(item) + "\\" + fso.GetBaseName(item) + EXTENSION;
+    commandItem = item.Path;
+  }
+  else {
+    WScript.Echo(item.Path + " が見つかりません。");
+    return;
+  }
+
+  // すでに同名ファイル/フォルダが存在する場合
+  if (fso.FolderExists(archiveFile) || fso.FileExists(archiveFile)) {
+    WScript.Echo(archiveFile + " は既に存在します。");
+    return;
+  }
+
+  // スクリプトのフォルダ
+  var scriptDir = fso.GetParentFolderName(WScript.ScriptFullName);
+
+  // 実行
+  var command = '"' + scriptDir + '\\' + EXE_FILE + '" ' + COMMAND + ' "' + archiveFile + '" "' + commandItem + '" ';
+  shell.Run(command, 1, true);
+}
+
+]]>
+</script>
+</job>
+</package>

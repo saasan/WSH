@@ -1,0 +1,150 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<!--
+================================================================================
+ renhalf.wsf
+ ファイル/フォルダ名に使用されている全角記号、数字、アルファベットを半角に変換
+ Copyright (C) 2005 s2works. All rights reserved.
+ http://s2works.homeunix.net/
+
+ 使用方法：
+   ・renhalf.wsfにファイル/フォルダをドロップしてみる。
+   ・renhalf.wsfをそのまま起動してみる。
+
+ 注意事項：
+   ・フォルダ内にある全ファイル/フォルダの名前を変換するので気をつけて。
+================================================================================
+-->
+<package>
+<job id="renhalf">
+<?job error="True" debug="False" ?>
+<object id="fso" progid="Scripting.FileSystemObject" />
+<object id="shell" progid="Wscript.Shell" />
+<object id="app" progid="Shell.Application" />
+<script language="JScript">
+<![CDATA[
+
+//-------------------------------------------------------------------------------
+// 定数
+//-------------------------------------------------------------------------------
+// Popup用
+var MB_YESNO            = 0x00000004;
+var MB_ICONEXCLAMATION  = 0x00000030;
+var MB_ICONINFORMATION  = 0x00000040;
+var IDYES               = 0x00000006;
+// 全角->半角変換する文字
+// 半角に変換したくないものはこのリストから取り除けばOK
+// \/:*?"<>|はファイル名に使えない
+// var FULL = "０１２３４５６７８９ＡＢＣＤＥＦＧＨＩＪＫＬＭＮＯＰＱＲＳＴＵＶＷＸＹＺａｂｃｄｅｆｇｈｉｊｋｌｍｎｏｐｑｒｓｔｕｖｗｘｙｚ　！＃＄％＆’（）＋，－．；＝＠［］＾＿｀｛｝";
+// var HALF = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz !#$%&'()+,-.;=@[]^_`{}";
+var FULL = "０１２３４５６７８９ＡＢＣＤＥＦＧＨＩＪＫＬＭＮＯＰＱＲＳＴＵＶＷＸＹＺａｂｃｄｅｆｇｈｉｊｋｌｍｎｏｐｑｒｓｔｕｖｗｘｙｚ　＃＄％＆’（）＋，－．；＝＠［］＾＿｀｛｝♯〜·";
+var HALF = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz #$%&'()+,-.;=@[]^_`{}#～・";
+
+//-------------------------------------------------------------------------------
+// メイン
+//-------------------------------------------------------------------------------
+var i;
+var items = new Array();	// 処理対象ファイル/フォルダ
+
+if (WScript.Arguments.Count() > 0) {
+  for (i = 0; i < WScript.Arguments.Count(); i++) {
+    items.push(WScript.Arguments.Item(i));
+  }
+}
+else {
+  // 引数がない場合はフォルダの参照ダイアログを表示
+  var bff = app.BrowseForFolder(0, "対象フォルダを選択してください", 0);
+
+  if (bff) {
+    items.push(bff.Items().Item().Path);
+  }
+  else {
+    WScript.Quit();
+  }
+}
+
+for (i = 0; i < items.length; i++) {
+  if (fso.FolderExists(items[i])) {
+    var popup = shell.Popup("サブフォルダ内も処理しますか？", 0, "renhalf", MB_YESNO);
+    renameFolder(fso.GetFolder(items[i]), (popup == IDYES));
+  }
+  else if (fso.FileExists(items[i])) {
+    rename(fso.GetFile(items[i]));
+  }
+}
+
+shell.Popup("完了", 0, "renhalf", MB_ICONINFORMATION);
+
+//-------------------------------------------------------------------------------
+// フォルダ内の名前変更
+//-------------------------------------------------------------------------------
+function renameFolder(f, recursive) {
+  if (recursive) {
+    // 対象フォルダのサブフォルダ列挙
+    var subFolders = new Enumerator(f.SubFolders);
+
+    for (; !subFolders.atEnd(); subFolders.moveNext()) {
+      renameFolder(subFolders.item(), recursive);
+      rename(subFolders.item());
+    }
+  }
+
+  if (f.Files.Count > 0) {
+    // 対象フォルダのファイル列挙
+    var files = new Enumerator(f.Files);
+
+    for (; !files.atEnd(); files.moveNext()) {
+      rename(files.item());
+    }
+  }
+
+  rename(f);
+}
+
+//-------------------------------------------------------------------------------
+// ファイル/フォルダ名変更
+//-------------------------------------------------------------------------------
+function rename(f) {
+  var newName = fullToHalf(f.Name);
+  var newPath = f.ParentFolder.Path + "\\" + newName;
+
+  if (newName != f.Name) {
+    if (fso.FolderExists(newPath) || fso.FileExists(newPath)) {
+      shell.Popup(newPath + "は既に存在します。", 0, "renhalf", MB_ICONEXCLAMATION);
+    }
+    else {
+      try {
+        f.Move(newPath);
+      }
+      catch (e) {
+      }
+    }
+  }
+}
+
+//------------------------------------------------------------------------------
+// 全角半角変換
+//------------------------------------------------------------------------------
+function fullToHalf(str) {
+  var table = [];
+  var i;
+
+  if (FULL.length != HALF.length) {
+    WScript.Echo("半角と全角のリストの長さが一致しません。");
+  }
+
+  for (i = 0; i < FULL.length; i++) {
+    table[FULL.charAt(i)] = HALF.charAt(i);
+  }
+
+  var newStr = "";
+  for (i = 0; i < str.length; i++) {
+    newStr += (str.charAt(i) in table ? table[str.charAt(i)] : str.charAt(i));
+  }
+
+  return newStr;
+}
+
+]]>
+</script>
+</job>
+</package>

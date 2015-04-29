@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<!--
+================================================================================
+ move_to_parent_folder.wsf
+ サブフォルダ内のファイルを親フォルダに移動
+ Copyright (C) 2010 s2works. All rights reserved.
+ http://s2works.homeunix.net/
+
+ 使用方法：
+   ・move_to_parent_folder.wsfにフォルダをドロップする。
+================================================================================
+-->
+<package>
+<job id="moveToParentFolder">
+<?job error="True" debug="False" ?>
+<object id="fso" progid="Scripting.FileSystemObject" />
+<script language="JScript">
+<![CDATA[
+
+//-------------------------------------------------------------------------------
+// メイン
+//-------------------------------------------------------------------------------
+var args = WScript.Arguments;
+
+if (args.length < 1) {
+  WScript.Echo("引数を指定してください");
+  WScript.Quit();
+}
+
+for (var i = 0; i < args.length; i++) {
+  var targetFolder = args(i);
+
+  if (fso.FolderExists(targetFolder)) {
+    folder = fso.GetFolder(targetFolder);
+
+    // 対象フォルダのサブフォルダ列挙
+    var subFolders = new Enumerator(folder.SubFolders);
+
+    // サブフォルダ内のファイルを移動
+    for (; !subFolders.atEnd(); subFolders.moveNext()) {
+      moveToParentFolder(folder, subFolders.item());
+    }
+  }
+}
+
+WScript.Echo("完了");
+
+//-------------------------------------------------------------------------------
+// 再帰部
+//-------------------------------------------------------------------------------
+function moveToParentFolder(parentFolder, folder) {
+  // 対象フォルダのサブフォルダ列挙
+  var subFolders = new Enumerator(folder.SubFolders);
+
+  // サブフォルダ内のファイルを移動
+  for (; !subFolders.atEnd(); subFolders.moveNext()) {
+    moveToParentFolder(parentFolder, subFolders.item());
+  }
+
+  // フォルダ内のファイル列挙
+  var files = new Enumerator(folder.Files);
+
+  // ファイルを移動
+  for (; !files.atEnd(); files.moveNext()) {
+    try {
+      files.item().Move(parentFolder.Path + '\\');
+    }
+    catch (e) {
+      WScript.Echo(e.description + "\n" + files.item().Path);
+    }
+  }
+
+  // ファイルとサブフォルダがなければフォルダ削除
+  if (folder.Files.Count == 0 && folder.SubFolders.Count == 0) {
+    try {
+      folder.Delete(true);
+    }
+    catch (e) {
+      WScript.Echo(e.description + "\n" + folder.Path);
+    }
+  }
+}
+
+]]>
+</script>
+</job>
+</package>

@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<!--
+================================================================================
+ arcone.wsf
+ ファイル/フォルダを個別に圧縮
+ Copyright (C) 2005 s2works. All rights reserved.
+ http://s2works.homeunix.net/
+
+ 必要ファイル：
+   ・7za.exe (http://www.7-zip.org/ja/)
+
+ 使用方法：
+   ・arcone.wsfにファイル/フォルダをドロップしてみる。
+   ・arcone.wsfをそのまま起動してみる。(フォルダ圧縮のみ可能)
+
+ 備考：
+   ・設定を適当に変えることでgzipなどにも対応できます。
+================================================================================
+-->
+<package>
+<job id="arcone">
+<?job error="True" debug="False" ?>
+<object id="fso" progid="Scripting.FileSystemObject" />
+<object id="shell" progid="Wscript.Shell" />
+<object id="app" progid="Shell.Application" />
+<script language="JavaScript">
+<![CDATA[
+
+//-------------------------------------------------------------------------------
+// 設定
+//-------------------------------------------------------------------------------
+// 実行ファイル名
+var EXEFILE = "7za.exe";
+// コマンド
+var COMMAND = "a -tzip -r -mx0";
+// 拡張子
+var EXTENSION = ".zip";
+
+//-------------------------------------------------------------------------------
+// 定数
+//-------------------------------------------------------------------------------
+// Popup用
+var MB_YESNO            = 0x00000004;
+var MB_ICONEXCLAMATION  = 0x00000030;
+var IDYES               = 0x00000006;
+
+//-------------------------------------------------------------------------------
+// メイン
+//-------------------------------------------------------------------------------
+var items = new Array();  // 処理対象ファイル/フォルダ
+
+if (WScript.Arguments.Count() > 0) {
+  for (var i = 0; i < WScript.Arguments.Count(); i++) {
+    items.push(WScript.Arguments.Item(i));
+  }
+}
+else {
+  // 引数がない場合はフォルダの参照ダイアログを表示
+  var bff = app.BrowseForFolder(0, "対象フォルダを選択してください", 0);
+
+  if (bff) {
+    items.push(bff.Items().Item().Path);
+  }
+  else {
+    WScript.Quit();
+  }
+}
+
+archive(items);
+
+//-------------------------------------------------------------------------------
+// 圧縮ファイル作成
+//-------------------------------------------------------------------------------
+function archive(items) {
+  for (var i = 0; i < items.length; i++) {
+    if (items[i].length < 1) continue;
+
+    var arcfile = new String(); // 圧縮ファイル
+    var item = new String();  // 圧縮するファイル/フォルダ
+
+    if (fso.FolderExists(items[i])) {
+      // フォルダの場合
+      arcfile = items[i] + EXTENSION;
+      item = items[i] + '\\*';
+    }
+    else if (fso.FileExists(items[i])) {
+      // ファイルの場合
+      arcfile = fso.GetParentFolderName(items[i]) + '\\' + fso.GetBaseName(items[i]) + EXTENSION;
+      item = items[i];
+    }
+    else {
+      shell.Popup(items[i] + " が見つかりません。", 0, WScript.ScriptName, MB_ICONEXCLAMATION);
+      continue;
+    }
+
+    // すでに同名ファイル/フォルダが存在する場合
+    var folderExists = fso.FolderExists(arcfile);
+    var fileExists = fso.FileExists(arcfile);
+
+    if (folderExists || fileExists) {
+      var popup = shell.Popup(arcfile + " は既に存在します。\r\n削除して続行しますか？", 0, WScript.ScriptName, MB_YESNO);
+      if (popup == IDYES) {
+        try {
+          if (folderExists) {
+            fso.DeleteFolder(arcfile, true);
+          }
+          else if (fileExists) {
+            fso.DeleteFile(arcfile, true);
+          }
+        }
+        catch (e) {
+          shell.Popup("エラー : " + e.description, 0, WScript.ScriptName, MB_ICONEXCLAMATION);
+        }
+      }
+      else {
+        continue;
+      }
+    }
+
+    // スクリプトのフォルダ
+    var scriptDir = new String(fso.GetParentFolderName(WScript.ScriptFullName));
+
+    // 実行
+    var command = new String('"' + scriptDir + '\\' + EXEFILE + '" ' + COMMAND + ' "' + arcfile + '" "' + item + '" ');
+    shell.Run(command, 1, true);
+  }
+}
+
+]]>
+</script>
+</job>
+</package>
