@@ -36,8 +36,8 @@ var IDYES               = 0x00000006;
 // \/:*?"<>|はファイル名に使えない
 // var FULL = "０１２３４５６７８９ＡＢＣＤＥＦＧＨＩＪＫＬＭＮＯＰＱＲＳＴＵＶＷＸＹＺａｂｃｄｅｆｇｈｉｊｋｌｍｎｏｐｑｒｓｔｕｖｗｘｙｚ　！＃＄％＆’（）＋，－．；＝＠［］＾＿｀｛｝";
 // var HALF = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz !#$%&'()+,-.;=@[]^_`{}";
-var FULL = "０１２３４５６７８９ＡＢＣＤＥＦＧＨＩＪＫＬＭＮＯＰＱＲＳＴＵＶＷＸＹＺａｂｃｄｅｆｇｈｉｊｋｌｍｎｏｐｑｒｓｔｕｖｗｘｙｚ　＃＄％＆’（）＋，－．；＝＠［］＾＿｀｛｝♯〜·";
-var HALF = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz #$%&'()+,-.;=@[]^_`{}#～・";
+var FULL = "０１２３４５６７８９ＡＢＣＤＥＦＧＨＩＪＫＬＭＮＯＰＱＲＳＴＵＶＷＸＹＺａｂｃｄｅｆｇｈｉｊｋｌｍｎｏｐｑｒｓｔｕｖｗｘｙｚ　＃＄％＆’（）＋，－．；＝＠［］＾＿｀｛｝♯〜·‐‑";
+var HALF = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz #$%&'()+,-.;=@[]^_`{}#～・--";
 
 //-------------------------------------------------------------------------------
 // メイン
@@ -63,7 +63,7 @@ else {
 }
 
 for (i = 0; i < items.length; i++) {
-  if (fso.FolderExists(items[i])) {
+  if (fso.FolderExists(items[i]) && fso.GetFolder(items[i]).SubFolders.Count > 0) {
     var popup = shell.Popup("サブフォルダ内も処理しますか？", 0, "renhalf", MB_YESNO);
     renameFolder(fso.GetFolder(items[i]), (popup == IDYES));
   }
