@@ -27,9 +27,10 @@
 // 定数
 //-------------------------------------------------------------------------------
 // Popup用
-var MB_YESNO            = 0x00000004;
+var MB_YESNOCANCEL      = 0x00000003;
 var MB_ICONEXCLAMATION  = 0x00000030;
 var MB_ICONINFORMATION  = 0x00000040;
+var IDCANCEL            = 0x00000002;
 var IDYES               = 0x00000006;
 // 全角->半角変換する文字
 // 半角に変換したくないものはこのリストから取り除けばOK
@@ -63,8 +64,17 @@ else {
 }
 
 for (i = 0; i < items.length; i++) {
-  if (fso.FolderExists(items[i]) && fso.GetFolder(items[i]).SubFolders.Count > 0) {
-    var popup = shell.Popup("サブフォルダ内も処理しますか？", 0, "renhalf", MB_YESNO);
+  if (fso.FolderExists(items[i])) {
+    var popup = IDYES;
+
+    if (fso.GetFolder(items[i]).SubFolders.Count > 0) {
+      var popup = shell.Popup(items[i] + "\nのサブフォルダ内も処理しますか？", 0, "renhalf", MB_YESNOCANCEL);
+    }
+
+    if (popup == IDCANCEL) {
+      WScript.Quit();
+    }
+
     renameFolder(fso.GetFolder(items[i]), (popup == IDYES));
   }
   else if (fso.FileExists(items[i])) {
